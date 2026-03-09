@@ -1,128 +1,66 @@
 import socket
-import seguridad
-import logging
+import ssl
 
-from cryptography.hazmat.primitives import serialization
-
-HOST = '127.0.0.1'
+HOST = "127.0.0.1"
 PORT = 5000
 
-logging.basicConfig(filename='prueba_positiva.log', encoding='utf-8', level=logging.INFO, format='%(asctime)s - %(message)s')
+context = ssl.create_default_context()
+context.minimum_version = ssl.TLSVersion.TLSv1_3
+context.check_hostname = False
+context.verify_mode = ssl.CERT_REQUIRED
+context.load_verify_locations("servidor_cert.pem")
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-    client.connect((HOST, PORT))
-    client.send("Cliente".encode())
+def get_input(prompt):
+    return input(f"\033[94m{prompt}\033[0m").strip()
 
-    with open("servidor_publica.pem", "rb") as f:
-        pub_rsa_srv = serialization.load_pem_public_key(f.read())
-
-    priv_rsa_cli = None
-    try:
-        with open("cliente_privada.pem", "rb") as f:
-            priv_rsa_cli = serialization.load_pem_private_key(f.read(), password=None)
-    except FileNotFoundError:
-        pass
-
-    clave_K = seguridad.establecer_sesion_cliente(client, priv_rsa_cli, pub_rsa_srv)
-
-    msgRegOLog = client.recv(1024).decode()
-    logging.info(f"[S->C] {msgRegOLog}")
-    print(msgRegOLog)
-    regOLog = input()
-    client.send(regOLog.encode())
-    while regOLog.upper() not in ["L", "R"]:
-        msgInvalidOption = client.recv(1024).decode()
-        logging.info(f"[S->C] {msgInvalidOption}")
-        print(msgInvalidOption)
-        regOLog = input()
-        client.send(regOLog.encode())
-
-    mgsUserPass = client.recv(1024).decode()
-    logging.info(f"[S->C] {mgsUserPass}")
-    print(mgsUserPass)
-    user = input(">> Usuario: ")
-    logging.info(f"[C] Usuario: {user}")
-    password = input(">> Password: ")
-    logging.info(f"[C] Password: {password}")
-
-    clave_sesion = clave_K
-    nonces_usados = set()
-
-    if regOLog.upper() == "R":
-        privada_pem_bytes, publica_pem_bytes = seguridad.generar_claves_registro()
-        nombre_archivo = f"clave_privada_{user}.pem"
-        with open(nombre_archivo, "wb") as f:
-            f.write(privada_pem_bytes)
-        print(f"Clave privada generada y guardada localmente en {nombre_archivo}")
-
-        datos_registro = f"{user}|{password}|{publica_pem_bytes.decode()}"
-        client.send(seguridad.cifrar_credenciales(clave_K, datos_registro))
-
-        respuesta = client.recv(1024).decode()
-        logging.info(f"[S->C] {respuesta}")
+with socket.create_connection((HOST, PORT)) as sock:
+    with context.wrap_socket(sock, server_hostname=HOST) as client:
+        authenticated = False
         
-        if respuesta.startswith("OK"):
-            user_id = respuesta.split("|")[1]
-            msgUserRegisteredOrLogged = "registrado correctamente" 
-            logging.info(f"[C] Usuario registrado correctamente. Nº de Cuenta: {user_id}")
-            print(f"Usuario registrado correctamente. Su Nº de Cuenta es: {user_id}")
-        else:
-            msgUserRegisteredOrLogged = respuesta
-            logging.info(f"[C] Registro fallido. Razón: {respuesta}")
-            print(msgUserRegisteredOrLogged)
-    else:
-        datos_cifrados = seguridad.cifrar_credenciales(clave_K, f"{user}|{password}")
-        client.send(datos_cifrados)
-        
-        msgUserRegisteredOrLogged = client.recv(1024).decode()
-        logging.info(f"[S->C] {msgUserRegisteredOrLogged}")
-        print(msgUserRegisteredOrLogged)
+        # --- FASE DE AUTENTICACIÓN ---
+        while not authenticated:
+            # 1. Recibir invitación (Login o Registro)
+            print(f"\n>>> {client.recv(1024).decode()}")
+            option = get_input("Opción (L/R): ")
+            client.send(option.encode())
 
-    if "Login correcto" not in msgUserRegisteredOrLogged and "registrado correctamente" not in msgUserRegisteredOrLogged:
-        logging.info(f"[C] Login fallido. Cerrando conexión.")
-        print("Login fallido. Cerrando conexión.")
-    else:
-        newTransaction = "S"
-        while newTransaction.upper() == "S":
+            # 2. Recibir instrucción de credenciales
+            print(f">>> {client.recv(1024).decode()}")
+            username = get_input("Usuario: ")
+            password = get_input("Password: ")
+            client.send(f"{username}|{password}".encode())
 
+            # 3. Recibir resultado
+            response = client.recv(1024).decode()
+            print(f"\033[92m{response}\033[0m" if "exitoso" in response else f"\033[91m{response}\033[0m")
+            
+            if "exitoso" in response or "exitosamente" in response:
+                authenticated = True
+
+        # --- FASE DE MENSAJERÍA ---
+        print("\n--- Sesión de Mensajería Activa ---")
+        while True:
             try:
-                msgTrans = client.recv(1024).decode()
-                logging.info(f"[S->C] {msgTrans}")
-                print(msgTrans)
-
-                origen = input(">> Cuenta origen: ")
-                logging.info(f"[C] Cuenta origen: {origen}")
-                destino = input(">> Cuenta destino: ")
-                logging.info(f"[C] Cuenta destino: {destino}")
-                cantidad = input(">> Cantidad: ")
-                logging.info(f"[C] Cantidad: {cantidad}")
-
-                mensaje_plano = f"{origen}|{destino}|{cantidad}"
-                mensaje = seguridad.crear_mensaje_seguro(clave_sesion, mensaje_plano)
-                client.send(mensaje.encode())
-
-                msgResultTrans = client.recv(4096).decode()
-                logging.info(f"[S->C] {msgResultTrans}")
+                # 1. Recibir invitación para enviar mensaje
+                prompt_server = client.recv(1024).decode()
+                if not prompt_server: break
                 
-                valido, msg, error = seguridad.verificar_integridad(
-                    clave_sesion, msgResultTrans, nonces_usados
-                )
+                msg = get_input("Mensaje (o 'exit' para salir): ")
+                client.send(msg.encode())
 
-                if valido:
-                    logging.info(f"[C] Respuesta del servidor: {msg}")
-                    print("Respuesta del servidor:", msg)
-                else:
-                    logging.error(f"[C] Error de verificación: {error}")
-                    print(error)
+                # 2. Recibir confirmación de guardado
+                status = client.recv(1024).decode()
+                print(f"Status: {status}")
+
+                # 3. Pregunta de continuación
+                cont_prompt = client.recv(1024).decode()
+                print(f"\n{cont_prompt}")
+                choice = get_input("Respuesta (S/N): ")
+                client.send(choice.encode())
+
+                if choice.upper() != 'S':
+                    print(client.recv(1024).decode()) # "Sesión cerrada"
                     break
 
-                msgNewTransaction = client.recv(1024).decode()
-                logging.info(f"[S->C] {msgNewTransaction}")
-                print(msgNewTransaction)
-                newTransaction = input()
-                client.send(newTransaction.encode())
-                
             except KeyboardInterrupt:
-                logging.info(f"[C] Saliendo por KeyboardInterrupt.")
-                print("\nSaliendo...")
                 break

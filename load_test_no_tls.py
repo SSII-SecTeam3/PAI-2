@@ -56,7 +56,7 @@ async def cliente_no_tls(worker_id):
         return False
 
 async def main():
-    print(f"🚀 Iniciando Test de Carga SIN TLS para {CONCURRENCY} clientes...")
+    print(f">> Iniciando Test de Carga SIN TLS para {CONCURRENCY} clientes...")
     inicio = time.time()
     
     tareas = [cliente_no_tls(i) for i in range(CONCURRENCY)]

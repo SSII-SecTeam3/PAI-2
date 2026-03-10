@@ -159,13 +159,46 @@ pip install -r requirements.txt
 ## 9. Arrancar la aplicación
 
 ### 9.1 Arrancar el servidor
-En una terminal ejecutar lo siguiente:
+Para el servidor CON TLS, en una terminal ejecutar lo siguiente:
 ```
-python servidor.py
+python -m servidor.servidor
+```
+
+Para el servidor SIN TLS, en una terminal ejecutar lo siguiente:
+```
+python -m servidor.servidor_no_tls
 ```
 
 ### 9.2 Arrancar el cliente
 En otra terminal diferente ejecutar:
 ```
-python cliente.py
+python cliente/cliente.py
 ```
+
+### 9.3 Ejecutar pruebas
+
+#### 9.3.1 Pruebas con TLS
+
+1. Arrancar el servidor con TLS (9.1)
+2. Ejecutar:
+    ```
+    python test/test_tls.py
+    ```
+
+#### 9.3.2 Pruebas sin TLS
+
+1. Arrancar el servidor SIN TLS (9.1)
+2. Ejecutar:
+    ```
+    python test/test_no_tls.py
+    ```
+
+#### 9.3.3 Pruebas con LOCUST
+
+1. Arrancar el servidor con TLS (9.1)
+2. Ejecutar:
+    ```
+    locust -f test/locustfile.py
+    ```
+3. Introducir el número de usuarios simulados con los que hacer la prueba.
+4. Introducir el número de nuevas conexiones por segundo (hasta que llega al número total de usuarios introducidos en el paso anterior).

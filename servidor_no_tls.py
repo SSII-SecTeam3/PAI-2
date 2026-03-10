@@ -8,7 +8,7 @@ import psycopg2
 HOST = "127.0.0.1"
 PORT = 5000
 
-MAX_USERS = 20
+MAX_USERS = 50
 
 ph = PasswordHasher()
 

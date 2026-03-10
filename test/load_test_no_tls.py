@@ -5,11 +5,11 @@ import uuid
 # Configuración de la prueba
 HOST = '127.0.0.1'
 PORT = 5000
-CONCURRENCY = 300
+CONCURRENCY = 310
 
 async def cliente_no_tls(worker_id):
     try:
-        await asyncio.sleep(worker_id * 0.1)
+        #await asyncio.sleep(worker_id * 0.15)
         
         # 1. Establecer conexión TCP cruda
         reader, writer = await asyncio.open_connection(HOST, PORT)
@@ -56,7 +56,7 @@ async def cliente_no_tls(worker_id):
         return False
 
 async def main():
-    print(f">> Iniciando Test de Carga SIN TLS para {CONCURRENCY} clientes...")
+    print(f">> Ejecutando Test de Carga SIN TLS para {CONCURRENCY} usuarios...")
     inicio = time.time()
     
     tareas = [cliente_no_tls(i) for i in range(CONCURRENCY)]

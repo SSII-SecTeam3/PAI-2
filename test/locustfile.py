@@ -33,7 +33,7 @@ class TLSSocketClient:
                 # 3. Recibir confirmación y prompt de mensaje
                 data = secure_conn.recv(2048)
                 if b"Escriba su mensaje" not in data:
-                    secure_conn.read(1024)
+                    secure_conn.recv(1024)
 
                 # 4. Enviar Mensaje
                 secure_conn.send(message.encode())

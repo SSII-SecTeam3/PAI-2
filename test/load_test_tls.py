@@ -5,7 +5,7 @@ import uuid
 
 HOST = '127.0.0.1'
 PORT = 5000
-CONCURRENCY = 300
+CONCURRENCY = 310
 
 async def cliente_tls(worker_id):
     # Configuración para saltar la comprobación de la identidad del servidor.
@@ -14,7 +14,8 @@ async def cliente_tls(worker_id):
     context.verify_mode = ssl.CERT_NONE 
 
     try:
-        await asyncio.sleep(worker_id * 0.2)
+        # Tiempo de espera necesario para escalonar la entrada de usuarios
+        await asyncio.sleep(worker_id * 0.15)
         
         # 1. Establecer conexión segura
         reader, writer = await asyncio.open_connection(
@@ -65,7 +66,7 @@ async def cliente_tls(worker_id):
         return False
 
 async def main():
-    print(f">> Iniciando Test de Carga TLS con {CONCURRENCY} clientes...")
+    print(f">> Ejecutando Test de Carga CON TLS para {CONCURRENCY} usuarios...")
     inicio = time.time()
     
     tareas = [cliente_tls(i) for i in range(CONCURRENCY)]

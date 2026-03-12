@@ -182,7 +182,7 @@ python cliente/cliente.py
 1. Arrancar el servidor con TLS (9.1)
 2. Ejecutar:
     ```
-    python test/test_tls.py
+    python test/load_test_tls.py
     ```
 
 #### 9.3.2 Pruebas sin TLS
@@ -190,7 +190,7 @@ python cliente/cliente.py
 1. Arrancar el servidor SIN TLS (9.1)
 2. Ejecutar:
     ```
-    python test/test_no_tls.py
+    python test/load_test_no_tls.py
     ```
 
 #### 9.3.3 Pruebas con LOCUST

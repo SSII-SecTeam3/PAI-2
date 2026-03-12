@@ -1,5 +1,6 @@
 import socket
 import ssl
+import getpass
 
 HOST = "127.0.0.1"
 PORT = 5000
@@ -10,11 +11,30 @@ context.check_hostname = False
 context.verify_mode = ssl.CERT_REQUIRED
 context.load_verify_locations("./certificados/servidor_cert.pem")
 
+ciphers_13 = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256"
+
+try:
+    if hasattr(context, 'set_ciphersuites'):
+        context.set_ciphersuites(ciphers_13)
+        print("[INFO] Cliente: Proponiendo Cipher Suites robustos.")
+    else:
+        print("[AVISO] Cliente: Usando suites por defecto de TLS 1.3.")
+except Exception as e:
+    print(f"[ERROR] Cliente al configurar Ciphers: {e}")
+
 def get_input(prompt):
     return input(f"\033[94m{prompt}\033[0m").strip()
 
+def get_password_input(prompt):
+    return getpass.getpass(f"\033[94m{prompt}\033[0m").strip()
+
 with socket.create_connection((HOST, PORT)) as sock:
     with context.wrap_socket(sock, server_hostname=HOST) as client:
+        # --- LÍNEA PARA VERIFICAR EL CIPHER ---
+        nombre, version, bits = client.cipher()
+        print(f"\n[INFO] Conectado mediante {version}")
+        print(f"[INFO] Cipher Suite: {nombre} ({bits} bits)\n")
+        # ---------------------------------------
         
         # Envolvemos el socket en el lector
         with client.makefile("r", encoding="utf-8") as reader:
@@ -27,10 +47,15 @@ with socket.create_connection((HOST, PORT)) as sock:
                 option = get_input("Opción (L/R): ")
                 client.send(f"{option}\n".encode())
 
+                # 1.2 Validar opción localmente antes de enviar
+                if option.strip().upper() not in ["L","R"]:
+                    print(f"\033[91m {reader.readline().strip()} \033[0m")
+                    continue
+
                 # 2. Recibir instrucción de credenciales
                 print(f">>> {reader.readline().strip()}")
                 username = get_input("Usuario: ")
-                password = get_input("Password: ")
+                password = get_password_input("Password: ")
                 client.send(f"{username}|{password}\n".encode())
 
                 # 3. Recibir resultado

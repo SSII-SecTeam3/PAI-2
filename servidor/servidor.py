@@ -108,6 +108,12 @@ def handle_client(conn, addr, context):
     """
     try:
         with context.wrap_socket(conn, server_side=True) as secure_conn:
+            # --- LÍNEA PARA VERIFICAR EL CIPHER ---
+            nombre, version, bits = secure_conn.cipher()
+            print(f"[*] Conexión segura con {addr}")
+            print(f"[*] Protocolo: {version} | Cipher: {nombre} | Bits: {bits}")
+            # ---------------------------------------
+
             user_id = None
             authenticated = False
 
@@ -115,6 +121,10 @@ def handle_client(conn, addr, context):
             while not authenticated:
                 secure_conn.send(b"Login (L) o Registro (R)?\n")
                 option = secure_conn.recv(1024).decode().upper()
+
+                if option.strip().upper() not in ["L","R"]:
+                    secure_conn.send(b"Error: Opcion invalida\n")
+                    continue
 
                 secure_conn.send(b"Introduzca usuario y password\n")
                 data = secure_conn.recv(1024).decode().strip()
@@ -170,6 +180,22 @@ def handle_client(conn, addr, context):
 def start_server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_3
+
+    # Definimos los suites más robustos (AES-256 y ChaCha20)
+    ciphers_13 = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256"
+    
+    # Intentamos aplicarlos de forma robusta
+    try:
+        if hasattr(context, 'set_ciphersuites'):
+            context.set_ciphersuites(ciphers_13)
+            print("[INFO] Cipher Suites TLS 1.3 configurados: AES-256/ChaCha20")
+        else:
+            # Si el sistema no soporta el método, usamos set_ciphers para versiones compatibles
+            # o dejamos que TLS 1.3 use sus valores seguros por defecto.
+            print("[AVISO] El sistema no permite restricción manual de suites 1.3. Usando valores seguros por defecto.")
+    except Exception as e:
+        print(f"[ERROR] Al configurar Ciphers: {e}")
+
     context.load_cert_chain(certfile="./certificados/servidor_cert.pem", keyfile="./certificados/servidor_key.pem")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:

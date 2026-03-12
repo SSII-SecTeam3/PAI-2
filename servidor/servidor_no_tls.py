@@ -111,6 +111,10 @@ def handle_client(conn, addr):
             conn.send(b"Login (L) o Registro (R)?")
             option = conn.recv(1024).decode().upper()
 
+            if option.strip().upper() not in ["L","R"]:
+                    conn.send(b"Error: Opcion invalida\n")
+                    continue
+
             conn.send(b"Introduzca usuario y password")
             data = conn.recv(1024).decode().strip()
 

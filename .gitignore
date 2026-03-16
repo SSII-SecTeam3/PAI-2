@@ -1,2 +1,6 @@
 .venv/
-*/__pycache__/
+*/__pycache__/*
+cliente/__pycache__/
+servidor/__pycache__/
+servidor/util/__pycache__/
+test/__pycache__/

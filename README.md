@@ -164,9 +164,14 @@ Para el servidor CON TLS, en una terminal ejecutar lo siguiente:
 python -m servidor.servidor
 ```
 
-Para el servidor SIN TLS, en una terminal ejecutar lo siguiente:
+Para el servidor SIN TLS para pruebas, en una terminal ejecutar lo siguiente:
 ```
 python -m servidor.servidor_no_tls
+```
+
+Para el servidor CON TLS para pruebas, en una terminal ejecutar lo siguiente:
+```
+python -m servidor.servidor_tls
 ```
 
 ### 9.2 Arrancar el cliente
@@ -179,7 +184,7 @@ python cliente/cliente.py
 
 #### 9.3.1 Pruebas con TLS
 
-1. Arrancar el servidor con TLS (9.1)
+1. Arrancar el servidor con TLS para pruebas (9.1)
 2. Ejecutar:
     ```
     python test/load_test_tls.py
@@ -187,7 +192,7 @@ python cliente/cliente.py
 
 #### 9.3.2 Pruebas sin TLS
 
-1. Arrancar el servidor SIN TLS (9.1)
+1. Arrancar el servidor SIN TLS para pruebas (9.1)
 2. Ejecutar:
     ```
     python test/load_test_no_tls.py
@@ -195,7 +200,7 @@ python cliente/cliente.py
 
 #### 9.3.3 Pruebas con LOCUST
 
-1. Arrancar el servidor con TLS (9.1)
+1. Arrancar el servidor con TLS para pruebas (9.1)
 2. Ejecutar:
     ```
     locust -f test/locustfile.py

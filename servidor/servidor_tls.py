@@ -5,20 +5,9 @@ from argon2 import PasswordHasher
 import socket
 import ssl
 import psycopg2
-import logging
-import os
-
 
 HOST = "127.0.0.1"
 PORT = 5000
-
-LOG_FOLDER = "logs"
-LOG_PATH = os.path.join(LOG_FOLDER, "conexion_tls.log")
-
-if not os.path.exists(LOG_FOLDER):
-    os.makedirs(LOG_FOLDER)
-
-logging.basicConfig(filename=LOG_PATH, encoding='utf-8', level=logging.INFO, format='%(asctime)s - %(message)s')
 
 MAX_USERS = 50
 
@@ -51,7 +40,6 @@ def register_user(username, password):
 
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
-        logging.error("El usuario introducido ya está registrado.")
         return False, None, "Usuario ya registrado\n"
 
     finally:
@@ -89,7 +77,6 @@ def login_user(username, password):
         return True, user_id, "Inicio de sesion exitoso\n"
     
     except Exception:
-        logging.error("Las credenciales introducidas por el cliente son invalidas.")
         return False, None, "ERROR: credenciales inválidas\n"
 
 
@@ -131,9 +118,7 @@ def handle_client(conn, addr, context):
 
             # --- FASE DE AUTENTICACIÓN ---
             while not authenticated:
-                logging.info("Iniciada la fase de autenticación en el lado del servidor o repetición de esta debido a credenciales erroneas introducidas.")
                 secure_conn.send(b"Login (L) o Registro (R)?\n")
-                logging.info("El servidor pregunta si el cliente quiere loguearse (L) o registrarse (R)")
                 option = secure_conn.recv(1024).decode().upper()
 
                 if option.strip().upper() not in ["L","R"]:
@@ -141,12 +126,10 @@ def handle_client(conn, addr, context):
                     continue
 
                 secure_conn.send(b"Introduzca usuario y password\n")
-                logging.info("El servidor le pregunta al cliente por sus credenciales (nombre de usuario y contraseña)")
                 data = secure_conn.recv(1024).decode().strip()
 
                 if "|" not in data:
                     secure_conn.send(b"Error: Formato invalido\n")
-                    logging.error("El formato de las credenciales enviadas por el cliente no es valido.")
                     continue
 
                 username, password = data.split("|", 1)
@@ -161,13 +144,11 @@ def handle_client(conn, addr, context):
                     authenticated = True
                     respuesta_completa = f"{msg}Escriba su mensaje (max 144 chars):\n"
                     secure_conn.send(respuesta_completa.encode())
-                    logging.info("El servidor le pide al cliente que escriba un mensaje de máximo 144 carácteres.")
                 else:
                     secure_conn.send(msg.encode())
 
             # --- FASE DE MENSAJERÍA ---
             while authenticated:
-                logging.info("Iniciada la fase de mensajería en el lado del servidor o repetición de esta debido a que el cliente quiere mandar otro mensaje.")
                 message = secure_conn.recv(1024).decode().strip()
 
                 if not message or message.lower() == "exit":
@@ -175,18 +156,14 @@ def handle_client(conn, addr, context):
 
                 if len(message) > 144:
                     secure_conn.send(b"ERROR: Mensaje demasiado largo\n")
-                    logging.error("Error al envíar el mensaje debido a que es más largo de 144 carácteres.")
                 else:
                     save_message(user_id, message)
                     secure_conn.send(b"OK: Mensaje guardado\n")
-                    logging.info("El servidor guarda el mensaje con éxito en la base de datos.")
 
                 secure_conn.send(b"Desea enviar otro mensaje? (S/N)\n")
-                logging.info("El servidor le pregunta al cliente si desea envíar otro mensaje (S) o no (N).")
                 cont = secure_conn.recv(1024).decode().strip().upper()
                 if cont.upper() != "S":
                     secure_conn.send(b"Cerrando conexion. Adios.\n")
-                    logging.info("El cliente decide no seguir envíando mensajes por lo que se cierra la sesión.")
                     break
 
     except Exception as e:
@@ -202,7 +179,6 @@ def handle_client(conn, addr, context):
 def start_server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_3
-    logging.info("Inicializado contexto TLS y configurado con versión TLS1.3 en el servidor.")
 
     # Definimos los suites más robustos (AES-256 y ChaCha20)
     ciphers_13 = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256"
@@ -212,25 +188,20 @@ def start_server():
         if hasattr(context, 'set_ciphersuites'):
             context.set_ciphersuites(ciphers_13)
             print("[INFO] Cipher Suites TLS 1.3 configurados: AES-256/ChaCha20")
-            logging.info("Configuradas las ciphersuites personalizadas AES-256/ChaCha20 en el TLS en el lado del servidor.")
         else:
             # Si el sistema no soporta el método, usamos set_ciphers para versiones compatibles
             # o dejamos que TLS 1.3 use sus valores seguros por defecto.
             print("[AVISO] El sistema no permite restricción manual de suites 1.3. Usando valores seguros por defecto.")
-            logging.info("Configuradas las ciphersuites por defecto en el TLS en el lado del servidor.")
     except Exception as e:
         print(f"[ERROR] Al configurar Ciphers: {e}")
-        logging.error("Error al configurar las ciphersuites en el lado del servidor.")
 
     context.load_cert_chain(certfile="./certificados/servidor_cert.pem", keyfile="./certificados/servidor_key.pem")
-    logging.info("Configurado certificado del servidor en el contexto TLS del servidor.")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((HOST, PORT))
         sock.listen(500)
         print(f">>> Servidor TLS escuchando en {HOST}:{PORT}...")
-        logging.info(f"Servidor TLS escuchando en {HOST}:{PORT}...")
 
         with ThreadPoolExecutor(max_workers=MAX_USERS) as executor:
             while True:
@@ -245,4 +216,3 @@ if __name__ == "__main__":
         start_server()
     except KeyboardInterrupt:
         print("\n\n>>> Servidor detenido manualmente. Cerrando...")
-        logging.info("Servidor cerrado manualmente.")
